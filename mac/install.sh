@@ -8,8 +8,10 @@ PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 LOG="$HOME/Library/Logs/todo-sync.log"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
-TODO_FILE="${TODO_FILE:-$HOME/Z/Ideaverse/Todo-Main.md}"
-TODO_REPO="${TODO_REPO:-fungus-rocks/ideaverse}"
+# Your vault's details live in config.env (not committed); see config.example.env.
+[[ -f "$HERE/config.env" ]] && source "$HERE/config.env"
+: "${TODO_FILE:?set TODO_FILE in mac/config.env}"
+: "${TODO_REPO:?set TODO_REPO in mac/config.env}"
 TODO_BRANCH="${TODO_BRANCH:-main}"
 TODO_PATH="${TODO_PATH:-Todo-Main.md}"
 PYTHON="$(command -v python3)"

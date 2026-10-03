@@ -57,12 +57,12 @@ versions of a clashing line rather than dropping one.
 
 ```sh
 gh auth login                 # once
+cp mac/config.example.env mac/config.env   # then fill in your vault's details
 mac/install.sh                # installs a launchd agent (every 60s + on save)
 mac/install.sh uninstall
 tail -f ~/Library/Logs/todo-sync.log
 ```
 
-Settings via env vars: `TODO_FILE`, `TODO_REPO`, `TODO_BRANCH`, `TODO_PATH`.
 
 ## Development
 

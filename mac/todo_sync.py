@@ -26,8 +26,8 @@ import time
 from pathlib import Path
 
 DEFAULTS = {
-    "TODO_FILE": "~/Z/Ideaverse/Todo-Main.md",
-    "TODO_REPO": "fungus-rocks/ideaverse",
+    "TODO_FILE": None,  # e.g. ~/Vault/Todo.md
+    "TODO_REPO": None,  # e.g. owner/vault
     "TODO_BRANCH": "main",
     "TODO_PATH": "Todo-Main.md",
     "TODO_STATE": "~/.local/state/todo-sync",
@@ -38,7 +38,10 @@ POLL_SECONDS = 50  # skip the network when nothing changed locally and we checke
 
 
 def env(key):
-    return os.path.expanduser(os.environ.get(key, DEFAULTS[key]))
+    value = os.environ.get(key, DEFAULTS[key])
+    if value is None:
+        sys.exit(f"{key} is not set (see mac/config.example.env)")
+    return os.path.expanduser(value)
 
 
 def log(msg):
