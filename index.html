@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Todo</title>
+<meta name="description" content="Your Obsidian todo note, everywhere.">
+<meta name="theme-color" content="#f4f3ef" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#151614" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Todo">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<style>
+  :root {
+    --bg: #f4f3ef;
+    --card: #ffffff;
+    --ink: #1d1d1b;
+    --muted: #85857f;
+    --faint: #b9b7ae;
+    --line: #e7e5de;
+    --accent: #2f7d5b;
+    --accent-soft: #e3efe8;
+    --accent-ink: #ffffff;
+    --live: #d1432f;
+    --warn: #c48a14;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 16px rgb(0 0 0 / 0.04);
+    --kb: 0px;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151614;
+      --card: #1f201d;
+      --ink: #ecebe6;
+      --muted: #8f8f88;
+      --faint: #55574f;
+      --line: #2d2e2a;
+      --accent: #5cbf8c;
+      --accent-soft: #233a2e;
+      --accent-ink: #0f1a14;
+      --live: #ef6a55;
+      --warn: #e0a83a;
+      --shadow: none;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", system-ui, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  svg { display: block; }
+
+  /* Header */
+  .bar {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; align-items: center; gap: 6px;
+    padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    -webkit-backdrop-filter: saturate(1.6) blur(18px);
+    backdrop-filter: saturate(1.6) blur(18px);
+  }
+  .titles { flex: 1; min-width: 0; }
+  .titles h1 { margin: 0; font-size: 28px; line-height: 1.1; letter-spacing: -0.02em; }
+  .titles p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+  .icon { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; color: var(--muted); }
+  .icon:active { background: var(--line); }
+  .icon[aria-pressed="true"] { color: var(--accent); }
+  .status {
+    display: flex; align-items: center; gap: 6px;
+    height: 30px; padding: 0 10px; border-radius: 15px;
+    font-size: 13px; color: var(--muted); background: var(--card); box-shadow: var(--shadow);
+  }
+  .status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+  .status[data-state="synced"] .dot { background: var(--accent); }
+  .status[data-state="saving"] .dot, .status[data-state="loading"] .dot { background: var(--warn); animation: pulse 1s ease-in-out infinite; }
+  .status[data-state="error"] .dot, .status[data-state="auth"] .dot { background: var(--live); }
+  .status[hidden] { display: none; }
+
+  /* List */
+  main { padding: 4px 16px 0; max-width: 680px; margin: 0 auto; }
+  .section { margin: 14px 0 0; }
+  .section-head { display: flex; align-items: baseline; gap: 8px; padding: 0 4px 6px; }
+  .section-head h2 {
+    flex: 1; min-width: 0; margin: 0;
+    font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .section-head .count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .section-head .add-here { color: var(--accent); font-size: 22px; line-height: 1; width: 28px; height: 22px; }
+  .card { background: var(--card); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+  .card ul { list-style: none; margin: 0; padding: 0; }
+  .card > ul > li + li { border-top: 1px solid var(--line); }
+  .children { padding-left: 34px; }
+  .row { display: flex; align-items: flex-start; gap: 12px; padding: 11px 14px; min-height: 46px; }
+  .check {
+    flex: none; width: 23px; height: 23px; margin-top: 0; border-radius: 50%;
+    border: 1.6px solid var(--faint); display: grid; place-items: center; color: transparent;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  }
+  .check:active { transform: scale(0.88); }
+  .done > .row .check { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .text { flex: 1; min-width: 0; padding-top: 1px; overflow-wrap: anywhere; cursor: text; }
+  .done > .row .text { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--faint); }
+  .text a { color: var(--accent); }
+  .text code { font: 0.9em ui-monospace, Menlo, monospace; background: var(--bg); padding: 1px 4px; border-radius: 4px; }
+  .text mark { background: color-mix(in srgb, var(--warn) 30%, transparent); color: inherit; }
+  .wikilink { color: var(--accent); font-weight: 500; }
+  .tag { color: var(--accent); }
+  .empty { padding: 13px 14px; color: var(--muted); font-size: 15px; }
+  .empty button { color: var(--accent); }
+  .more { display: block; width: 100%; padding: 11px 14px; text-align: left; font-size: 14px; color: var(--muted); border-top: 1px solid var(--line); }
+
+  /* Editing a task in place */
+  .edit { flex: 1; min-width: 0; }
+  .edit input {
+    width: 100%; font: inherit; font-size: 17px; color: var(--ink);
+    border: 0; outline: 0; background: transparent; padding: 0;
+  }
+  .edit .actions { display: flex; gap: 8px; margin-top: 10px; }
+  .edit .actions button { font-size: 14px; padding: 6px 12px; border-radius: 14px; background: var(--bg); }
+  .edit .actions .danger { color: var(--live); margin-left: auto; }
+  .editing > .row { background: var(--accent-soft); }
+
+  /* Welcome */
+  .welcome { background: var(--card); border-radius: 16px; padding: 20px; margin-top: 18px; box-shadow: var(--shadow); }
+  .welcome h2 { margin: 0 0 8px; font-size: 20px; }
+  .welcome p, .welcome li { color: var(--muted); font-size: 15px; }
+  .welcome ol { padding-left: 20px; }
+  .welcome a { color: var(--accent); }
+  .primary {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 44px; padding: 0 20px; border-radius: 22px;
+    background: var(--accent); color: var(--accent-ink); font-weight: 600;
+  }
+  .skeleton { height: 46px; margin: 14px 0; border-radius: 14px; background: var(--card); opacity: 0.6; animation: pulse 1.4s ease-in-out infinite; }
+
+  /* Composer */
+  .composer {
+    position: fixed; left: 0; right: 0; bottom: var(--kb); z-index: 6;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--card) 88%, transparent);
+    -webkit-backdrop-filter: saturate(1.6) blur(18px);
+    backdrop-filter: saturate(1.6) blur(18px);
+    border-top: 1px solid var(--line);
+  }
+  .kb .composer { padding-bottom: 10px; }
+  .composer-inner { max-width: 680px; margin: 0 auto; }
+  .composer .row { padding: 0; min-height: 0; gap: 8px; align-items: center; }
+  .target {
+    display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 13px; color: var(--accent);
+  }
+  .target b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .target button { color: var(--muted); font-size: 18px; line-height: 1; padding: 0 4px; }
+  .target[hidden] { display: none; }
+  .pick {
+    flex: none; max-width: 28%; height: 40px; padding: 0 26px 0 12px; border-radius: 20px;
+    border: 0; background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2385857f' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 11px center;
+    color: var(--ink); font: 500 14px/1 inherit; font-family: inherit;
+    -webkit-appearance: none; appearance: none; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
+  }
+  .pick:disabled { opacity: 0.4; }
+  #new {
+    flex: 1; min-width: 0; height: 40px; padding: 0 14px; border-radius: 20px;
+    border: 0; outline: 0; background: var(--bg); color: var(--ink);
+    font: 17px/1 inherit; font-family: inherit; /* 16px+ stops iOS zooming in on focus */
+  }
+  #new::placeholder { color: var(--muted); }
+  .round { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; position: relative; }
+  .mic { background: var(--bg); color: var(--ink); -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+  .mic .lang {
+    position: absolute; right: -2px; bottom: -2px; min-width: 18px; height: 16px; padding: 0 3px;
+    border-radius: 8px; background: var(--card); color: var(--muted); font-size: 10px; line-height: 16px; font-weight: 600;
+    box-shadow: 0 0 0 1px var(--line);
+  }
+  .mic.live { background: var(--live); color: #fff; animation: ring 1.4s ease-out infinite; }
+  .send { background: var(--accent); color: var(--accent-ink); transition: opacity 0.15s, transform 0.1s; }
+  .send:disabled { opacity: 0.35; }
+  .send:not(:disabled):active { transform: scale(0.92); }
+
+  /* Toast */
+  .toast {
+    position: fixed; left: 50%; bottom: calc(84px + var(--kb) + env(safe-area-inset-bottom)); z-index: 7;
+    transform: translate(-50%, 8px); opacity: 0; pointer-events: none;
+    max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 20px;
+    background: var(--ink); color: var(--bg); font-size: 14px; text-align: center;
+    transition: opacity 0.2s, transform 0.2s;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* Settings sheet */
+  dialog {
+    width: min(520px, 100%); max-height: 92dvh; margin: auto auto 0; padding: 0; border: 0;
+    border-radius: 18px 18px 0 0; background: var(--card); color: var(--ink);
+  }
+  @media (min-width: 560px) { dialog { margin: auto; border-radius: 18px; } }
+  dialog::backdrop { background: rgb(0 0 0 / 0.35); }
+  .sheet { padding: 20px 20px calc(20px + env(safe-area-inset-bottom)); }
+  .sheet h2 { margin: 0 0 4px; font-size: 20px; outline: none; }
+  .sheet .hint { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+  .sheet .hint a { color: var(--accent); }
+  .field { display: block; margin: 0 0 12px; }
+  .field span { display: block; margin: 0 0 4px; font-size: 13px; color: var(--muted); }
+  .field input, .field select {
+    width: 100%; height: 44px; padding: 0 12px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: 17px/1 inherit; font-family: inherit;
+  }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .sheet .error { color: var(--live); font-size: 14px; min-height: 1.4em; margin: 0 0 8px; }
+  .sheet .buttons { display: flex; gap: 10px; align-items: center; }
+  .sheet .buttons .primary { flex: 1; }
+  .sheet .link { color: var(--muted); font-size: 14px; padding: 10px; }
+  .sheet .forget { color: var(--live); }
+
+  @keyframes pulse { 50% { opacity: 0.45; } }
+  @keyframes ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--live) 50%, transparent); } 100% { box-shadow: 0 0 0 12px transparent; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+  <header class="bar">
+    <div class="titles">
+      <h1>Todo</h1>
+      <p id="summary"></p>
+    </div>
+    <button id="status" class="status" data-state="loading" hidden title="Sync now"><span class="dot"></span><span class="label"></span></button>
+    <button id="toggle-done" class="icon" aria-pressed="false" title="Show completed">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.6 2.6L16 9.6"/></svg>
+    </button>
+    <button id="open-settings" class="icon" title="Settings">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+    </button>
+  </header>
+
+  <main id="list"></main>
+
+  <form id="composer" class="composer" autocomplete="off">
+    <div class="composer-inner">
+      <div id="target" class="target" hidden>
+        <span>Subtask of <b></b></span>
+        <button type="button" id="clear-target" aria-label="Stop adding subtasks">×</button>
+      </div>
+      <div class="row">
+        <select id="section" class="pick" aria-label="Section"></select>
+        <input id="new" placeholder="Add a todo" enterkeyhint="send" autocapitalize="sentences" aria-label="New todo">
+        <button type="button" id="mic" class="round mic" aria-label="Dictate (hold to switch language)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>
+          <span class="lang" hidden></span>
+        </button>
+        <button type="submit" id="send" class="round send" aria-label="Add" disabled>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+        </button>
+      </div>
+    </div>
+  </form>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <dialog id="settings">
+    <form class="sheet" method="dialog" id="settings-form" autocomplete="off">
+      <h2 tabindex="-1">Settings</h2>
+      <p class="hint">Reads and writes one Markdown file in your GitHub repo. Use a
+        <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a>
+        limited to that repo with <b>Contents: Read and write</b>. It stays on this device.</p>
+      <label class="field"><span>GitHub token</span>
+        <input name="token" type="password" spellcheck="false" autocapitalize="off" placeholder="github_pat_…"></label>
+      <label class="field"><span>Repository</span>
+        <input name="repo" spellcheck="false" autocapitalize="off" placeholder="owner/vault"></label>
+      <div class="grid2">
+        <label class="field"><span>File</span>
+          <input name="path" spellcheck="false" autocapitalize="off" placeholder="Todo-Main.md"></label>
+        <label class="field"><span>Branch</span>
+          <input name="branch" spellcheck="false" autocapitalize="off" placeholder="main"></label>
+      </div>
+      <label class="field"><span>Voice language</span>
+        <select name="lang">
+          <option value="">Same as this device</option>
+          <option value="en-US">English</option>
+          <option value="zh-CN">中文（普通话）</option>
+        </select></label>
+      <p class="error" id="settings-error"></p>
+      <div class="buttons">
+        <button type="button" class="link forget" id="forget">Forget token</button>
+        <button type="button" class="link" id="cancel-settings">Cancel</button>
+        <button type="submit" class="primary" id="save-settings">Connect</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
