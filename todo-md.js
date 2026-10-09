@@ -164,6 +164,10 @@ function insertTask(doc, lines, op, body) {
   }
 
   const top = section.tasks.filter((t) => !t.parent);
+  if (op.position === 'top' && top.length) {
+    lines.splice(top[0].line, 0, `${top[0].indent}- [ ] ${body}`);
+    return;
+  }
   const last = top[top.length - 1];
   const at = last ? subtreeEnd(lines, last) + 1 : section.line + 1;
   lines.splice(at, 0, `${last ? last.indent : ''}- [ ] ${body}`);

@@ -136,12 +136,13 @@ export function applyOp(text, op) {
       // Same order Hermes keeps: section, then priority, then status.
       const key = (s, p, st) => [rank(SECTIONS, s), rank(PRIORITIES, p), rank(STATUSES, st)];
       const mine = key(section, 'high', 'new');
-      const before = (t) => {
+      const cmp = (t) => {
         const k = key(t.section.key, t.priority, t.status);
-        for (let i = 0; i < 3; i++) if (k[i] !== mine[i]) return k[i] < mine[i];
-        return true;
+        for (let i = 0; i < 3; i++) if (k[i] !== mine[i]) return k[i] - mine[i];
+        return 0;
       };
-      const prev = doc.tasks.filter(before).at(-1);
+      // 'top' goes first among its equals (Hermes's sort is stable, so it stays there).
+      const prev = doc.tasks.filter((t) => (op.position === 'top' ? cmp(t) < 0 : cmp(t) <= 0)).at(-1);
       lines.splice(prev ? prev.line + 1 : doc.afterHeader + 1, 0, formatRow(row));
       break;
     }

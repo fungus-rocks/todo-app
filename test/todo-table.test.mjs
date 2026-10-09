@@ -69,12 +69,21 @@ test('formats dispatcher picks the right model', () => {
 });
 
 test('real Hermes list parses fully and round-trips', () => {
-  const real = readFileSync('/Users/zheqian/.hermes/skills/productivity/manage-todos/references/todo_list.md', 'utf8');
+  const real = readFileSync('/Users/zheqian/Z/Ideaverse/Todos.md', 'utf8');
   const doc = parse(real);
   assert.equal(doc.tasks.length, real.trim().split('\n').length - 2);
   let t = real;
+  // Check off and un-check every open row (re-checking a finished row would stamp a new finished_at).
   for (let i = 0; i < doc.tasks.length; i++) {
-    for (const _ of [0, 1]) { const task = parse(t).tasks[i]; t = applyOp(t, { type: 'toggle', ref: refOf(task), done: !task.done, at: 0 }).text; }
+    if (doc.tasks[i].done) continue;
+    for (const _ of [0, 1]) { const task = parse(t).tasks[i]; t = applyOp(t, { type: 'toggle', ref: refOf(task), done: !task.done }).text; }
   }
   assert.equal(t, real);
+});
+
+test('position top puts a new todo first in its section', () => {
+  const out = applyOp(NOTE, { type: 'add', section: 'z', text: 'first!', position: 'top' }).text;
+  assert.match(out, /in_progress \|  \| 2026-11-01 \|\n\| z \| high \| first! \| new \|  \|  \|\n\| z \| high \| send ig recap/);
+  const empty = applyOp(NOTE, { type: 'add', section: '170', text: 'x', position: 'top' }).text;
+  assert.match(empty, /\| --- \| --- \| --- \| --- \| --- \| --- \|\n\| 170 \| high \| x \| new/);
 });

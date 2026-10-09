@@ -57,7 +57,7 @@
     color: var(--ink);
     font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", system-ui, sans-serif;
     -webkit-tap-highlight-color: transparent;
-    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+    padding-bottom: calc(32px + env(safe-area-inset-bottom));
   }
   button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
   svg { display: block; }
@@ -101,7 +101,7 @@
   .section-head .add-here { color: var(--accent); font-size: 22px; line-height: 1; width: 28px; height: 22px; }
   .card { background: var(--card); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
   .card ul { list-style: none; margin: 0; padding: 0; }
-  .card > ul > li + li { border-top: 1px solid var(--line); }
+  .items > ul > li + li { border-top: 1px solid var(--line); }
   .children { padding-left: 34px; }
   .row { display: flex; align-items: flex-start; gap: 12px; padding: 11px 14px; min-height: 46px; }
   .check {
@@ -126,7 +126,7 @@
   /* Editing a task in place */
   .edit { flex: 1; min-width: 0; }
   .edit input {
-    width: 100%; font: inherit; font-size: 17px; color: var(--ink);
+    width: 100%; font-family: inherit; font-size: 17px; color: var(--ink);
     border: 0; outline: 0; background: transparent; padding: 0;
   }
   .edit .actions { display: flex; gap: 8px; margin-top: 10px; }
@@ -147,52 +147,33 @@
   }
   .skeleton { height: 46px; margin: 14px 0; border-radius: 14px; background: var(--card); opacity: 0.6; animation: pulse 1.4s ease-in-out infinite; }
 
-  /* Composer */
-  .composer {
-    position: fixed; left: 0; right: 0; bottom: var(--kb); z-index: 6;
-    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
-    background: color-mix(in srgb, var(--card) 88%, transparent);
-    -webkit-backdrop-filter: saturate(1.6) blur(18px);
-    backdrop-filter: saturate(1.6) blur(18px);
-    border-top: 1px solid var(--line);
+  /* New todo line */
+  .draft { display: flex; align-items: center; gap: 12px; padding: 7px 8px 7px 14px; min-height: 46px; }
+  .card:has(.items ul) .draft { border-bottom: 1px solid var(--line); }
+  .card:has(.draft) .empty { display: none; }
+  .check.ghost { border-style: dashed; cursor: default; }
+  .draft-body { flex: 1; min-width: 0; }
+  .draft-hint { font-size: 12px; color: var(--muted); margin-bottom: 1px; }
+  .draft-hint b { font-weight: 500; }
+  .draft input {
+    width: 100%; height: 32px; padding: 0; border: 0; outline: 0; background: transparent;
+    color: var(--ink); font-family: inherit; font-size: 17px; /* 16px+ stops iOS zooming in on focus */
+    caret-color: var(--accent);
   }
-  .kb .composer { padding-bottom: 10px; }
-  .composer-inner { max-width: 680px; margin: 0 auto; }
-  .composer .row { padding: 0; min-height: 0; gap: 8px; align-items: center; }
-  .target {
-    display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 13px; color: var(--accent);
-  }
-  .target b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .target button { color: var(--muted); font-size: 18px; line-height: 1; padding: 0 4px; }
-  .target[hidden] { display: none; }
-  .pick {
-    flex: none; max-width: 28%; height: 40px; padding: 0 26px 0 12px; border-radius: 20px;
-    border: 0; background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2385857f' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 11px center;
-    color: var(--ink); font: 500 14px/1 inherit; font-family: inherit;
-    -webkit-appearance: none; appearance: none; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
-  }
-  .pick:disabled { opacity: 0.4; }
-  #new {
-    flex: 1; min-width: 0; height: 40px; padding: 0 14px; border-radius: 20px;
-    border: 0; outline: 0; background: var(--bg); color: var(--ink);
-    font: 17px/1 inherit; font-family: inherit; /* 16px+ stops iOS zooming in on focus */
-  }
-  #new::placeholder { color: var(--muted); }
-  .round { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; position: relative; }
+  .draft input::placeholder { color: var(--faint); }
+  .round { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; position: relative; }
   .mic { background: var(--bg); color: var(--ink); -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
   .mic .lang {
-    position: absolute; right: -2px; bottom: -2px; min-width: 18px; height: 16px; padding: 0 3px;
-    border-radius: 8px; background: var(--card); color: var(--muted); font-size: 10px; line-height: 16px; font-weight: 600;
+    position: absolute; right: -3px; bottom: -3px; min-width: 16px; height: 14px; padding: 0 3px;
+    border-radius: 7px; background: var(--card); color: var(--muted); font-size: 9px; line-height: 14px; font-weight: 600;
     box-shadow: 0 0 0 1px var(--line);
   }
+  .mic .lang:empty { display: none; }
   .mic.live { background: var(--live); color: #fff; animation: ring 1.4s ease-out infinite; }
-  .send { background: var(--accent); color: var(--accent-ink); transition: opacity 0.15s, transform 0.1s; }
-  .send:disabled { opacity: 0.35; }
-  .send:not(:disabled):active { transform: scale(0.92); }
 
   /* Toast */
   .toast {
-    position: fixed; left: 50%; bottom: calc(84px + var(--kb) + env(safe-area-inset-bottom)); z-index: 7;
+    position: fixed; left: 50%; bottom: calc(20px + var(--kb) + env(safe-area-inset-bottom)); z-index: 7;
     transform: translate(-50%, 8px); opacity: 0; pointer-events: none;
     max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 20px;
     background: var(--ink); color: var(--bg); font-size: 14px; text-align: center;
@@ -215,7 +196,7 @@
   .field span { display: block; margin: 0 0 4px; font-size: 13px; color: var(--muted); }
   .field input, .field select {
     width: 100%; height: 44px; padding: 0 12px; border-radius: 10px;
-    border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: 17px/1 inherit; font-family: inherit;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 17px;
   }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .sheet .error { color: var(--live); font-size: 14px; min-height: 1.4em; margin: 0 0 8px; }
@@ -245,26 +226,6 @@
   </header>
 
   <main id="list"></main>
-
-  <form id="composer" class="composer" autocomplete="off">
-    <div class="composer-inner">
-      <div id="target" class="target" hidden>
-        <span>Subtask of <b></b></span>
-        <button type="button" id="clear-target" aria-label="Stop adding subtasks">×</button>
-      </div>
-      <div class="row">
-        <select id="section" class="pick" aria-label="Section"></select>
-        <input id="new" placeholder="Add a todo" enterkeyhint="send" autocapitalize="sentences" aria-label="New todo">
-        <button type="button" id="mic" class="round mic" aria-label="Dictate (hold to switch language)">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>
-          <span class="lang" hidden></span>
-        </button>
-        <button type="submit" id="send" class="round send" aria-label="Add" disabled>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
-        </button>
-      </div>
-    </div>
-  </form>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 

@@ -122,3 +122,10 @@ test('inline rendering escapes HTML and keeps links safe', () => {
   assert.ok(!renderInline('[x](javascript:alert(1))').includes('<a'));
   assert.equal(plainText('[[Hermes Agent]]'), 'Hermes Agent');
 });
+
+test('position top puts a new todo first in its section', () => {
+  const out = applyOp(NOTE, { type: 'add', section: '## [[Side Project]]', text: 'First', position: 'top' }).text;
+  assert.match(out, /## \[\[Side Project\]\]\n- \[ \] First\n- \[x\] Shipped thing/);
+  const empty = applyOp(NOTE, { type: 'add', section: '## Personal', text: 'Solo', position: 'top' }).text;
+  assert.match(empty, /## Personal\n- \[ \] Solo\n/);
+});

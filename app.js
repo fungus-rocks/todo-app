@@ -9,12 +9,6 @@ const els = {
   summary: $('summary'),
   status: $('status'),
   toggleDone: $('toggle-done'),
-  composer: $('composer'),
-  section: $('section'),
-  input: $('new'),
-  mic: $('mic'),
-  send: $('send'),
-  target: $('target'),
   toast: $('toast'),
   dialog: $('settings'),
   form: $('settings-form'),
@@ -23,6 +17,8 @@ const els = {
 
 const SETTINGS_KEY = 'todo:settings';
 const LINGER_MS = 1600; // a task you just checked stays visible this long before hiding
+const MIC_SVG =
+  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
 const CHECK_SVG =
   '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 
@@ -48,7 +44,6 @@ let settings = {
   path: 'Todos.md',
   lang: '',
   showDone: false,
-  section: null,
   ...storage.get(SETTINGS_KEY, {}),
 };
 const saveSettings = () => storage.set(SETTINGS_KEY, settings);
@@ -57,10 +52,9 @@ let store = null;
 let doc = parse('');
 let editing = null; // ref of the task being edited in place
 let cancelEdit = false;
-let target = null; // { ref, label } when adding subtasks
+let draft = null; // the open "new todo" line: { el, input, mic, section, parent }
 let deferred = false;
 let seenSkipped = 0;
-let pickerKeys = '';
 const justDone = new Map();
 
 const esc = (s) =>
@@ -77,9 +71,9 @@ function render() {
   deferred = false;
   if (store?.loaded) doc = parse(store.text);
   renderHeader();
-  renderComposer();
-  if (!store) return renderWelcome();
-  if (!store.loaded) {
+  if (!store || !store.loaded) {
+    draft = null; // the list is replaced wholesale below
+    if (!store) return renderWelcome();
     els.list.innerHTML = '<div class="skeleton"></div>'.repeat(3);
     return;
   }
@@ -103,27 +97,45 @@ function render() {
       ${kids.length ? `<ul class="children">${kids.map(taskHtml).join('')}</ul>` : ''}</li>`;
   };
 
-  const sections = shownSections();
-  if (!sections.length) {
-    els.list.innerHTML = `<div class="welcome"><h2>No todos yet</h2><p>Add one below. It lands at the end of <b>${esc(settings.path)}</b>.</p></div>`;
-    return;
+  renderSections(shownSections(), (s) => {
+    const open = s.tasks.filter((t) => !t.done).length;
+    const hidden = s.tasks.filter((t) => !visible(t)).length;
+    const items = s.tasks.filter((t) => !t.parent && visible(t)).map(taskHtml).join('');
+    const title = s.title || 'Inbox';
+    return {
+      head: `<h2>${esc(title)}</h2><span class="count">${open || ''}</span>
+        <button class="add-here" data-add aria-label="Add to ${esc(title)}">+</button>`,
+      items:
+        (items ? `<ul>${items}</ul>` : `<div class="empty" data-add>${s.tasks.length ? 'All done ✓' : 'Nothing here yet'}</div>`) +
+        (hidden ? `<button class="more" data-show-done>${hidden} completed</button>` : ''),
+    };
+  });
+  if (draft && !draft.el.isConnected) draft = null; // its section vanished
+}
+
+// Updates sections in place instead of rebuilding the list, so an open
+// "new todo" line keeps its focus and keyboard while items change around it.
+function renderSections(sections, build) {
+  const existing = new Map([...els.list.children].filter((n) => n.dataset.key != null).map((n) => [n.dataset.key, n]));
+  let prev = null;
+  for (const s of sections) {
+    let el = existing.get(s.key);
+    if (!el) {
+      el = document.createElement('section');
+      el.className = 'section';
+      el.dataset.key = s.key;
+      el.innerHTML = '<div class="section-head"></div><div class="card"><div class="draft-slot"></div><div class="items"></div></div>';
+    }
+    const { head, items } = build(s);
+    el.querySelector('.section-head').innerHTML = head;
+    el.querySelector('.items').innerHTML = items;
+    const at = prev ? prev.nextSibling : els.list.firstChild;
+    if (el !== at) els.list.insertBefore(el, at); // only moves what's out of place
+    existing.delete(s.key);
+    prev = el;
   }
-  els.list.innerHTML = sections
-    .map((s) => {
-      const si = doc.sections.indexOf(s);
-      const open = s.tasks.filter((t) => !t.done).length;
-      const hidden = s.tasks.filter((t) => !visible(t)).length;
-      const items = s.tasks.filter((t) => !t.parent && visible(t)).map(taskHtml).join('');
-      const title = s.title || 'Inbox';
-      return `<section class="section">
-        <div class="section-head"><h2>${esc(title)}</h2><span class="count">${open || ''}</span>
-          <button class="add-here" data-section="${si}" aria-label="Add to ${esc(title)}">+</button></div>
-        <div class="card">
-          ${items ? `<ul>${items}</ul>` : `<div class="empty" data-section="${si}">${s.tasks.length ? 'All done ✓' : 'Nothing here yet'}</div>`}
-          ${hidden ? `<button class="more" data-show-done>${hidden} completed</button>` : ''}
-        </div></section>`;
-    })
-    .join('');
+  // Drop the welcome/skeleton placeholders and any section that no longer exists.
+  for (const n of [...els.list.children]) if (n.dataset.key == null || existing.get(n.dataset.key) === n) n.remove();
 }
 
 function shownSections() {
@@ -159,28 +171,6 @@ function renderHeader() {
   }
 }
 
-function renderComposer() {
-  const opts = store?.loaded ? shownSections() : [];
-  const keys = opts.map((s) => s.key).join('\n');
-  if (keys !== pickerKeys) {
-    pickerKeys = keys;
-    els.section.innerHTML = opts.map((s) => `<option value="${esc(s.key)}">${esc(s.title || 'Inbox')}</option>`).join('');
-  }
-  els.section.value = defaultSection();
-  els.section.disabled = !opts.length || Boolean(target);
-  els.target.hidden = !target;
-  if (target) els.target.querySelector('b').textContent = target.label;
-  els.input.placeholder = target ? 'Add a subtask' : 'Add a todo';
-  const badge = els.mic.querySelector('.lang');
-  badge.hidden = !Recognition;
-  badge.textContent = voiceLang().startsWith('zh') ? '中' : 'EN';
-  updateSend();
-}
-
-function updateSend() {
-  els.send.disabled = !store || !els.input.value.trim();
-}
-
 function renderWelcome() {
   els.list.innerHTML = `<div class="welcome">
     <h2>Connect your todo note</h2>
@@ -198,7 +188,6 @@ function renderWelcome() {
 
 function defaultSection() {
   const shown = shownSections();
-  if (!store?.loaded || shown.some((s) => s.key === settings.section)) return settings.section ?? '';
   return shown.find((s) => s.key === doc.defaultSection)?.key ?? shown.find((s) => s.level >= 2)?.key ?? shown[0]?.key ?? '';
 }
 
@@ -251,15 +240,79 @@ function remove(task) {
   toast('Deleted');
 }
 
-function setTarget(task) {
-  target = task ? { ref: refOf(task), label: task.text } : null;
-  renderComposer();
-  if (task) els.input.focus();
+// ---------- new todo line ----------
+
+// Opens an empty line at the top of a section (or under a task, for a
+// subtask) and focuses it. Must run inside the tap so iOS shows the keyboard.
+function openDraft(sectionKey, parent = null) {
+  if (draft && draft.section === sectionKey && draft.parent?.raw === parent?.raw) return draft.input.focus();
+  closeDraft(true);
+  const slot = [...els.list.children].find((n) => n.dataset.key === sectionKey)?.querySelector('.draft-slot');
+  if (!slot) return;
+
+  const el = document.createElement('div');
+  el.className = 'draft';
+  el.innerHTML = `<span class="check ghost"></span>
+    <div class="draft-body">
+      ${parent ? `<div class="draft-hint">Subtask of <b>${esc(locate(doc, parent)?.text ?? '')}</b></div>` : ''}
+      <input aria-label="New todo" placeholder="${parent ? 'New subtask' : 'New todo'}" enterkeyhint="done" autocapitalize="sentences" autocomplete="off">
+    </div>
+    <button type="button" class="round mic" aria-label="Dictate (hold to switch language)">${MIC_SVG}<span class="lang"></span></button>`;
+  slot.append(el);
+  draft = { el, input: el.querySelector('input'), mic: el.querySelector('.mic'), section: sectionKey, parent };
+  updateLangBadge();
+  wireDraft(draft);
+  draft.input.focus();
+  el.scrollIntoView({ block: 'nearest' });
 }
 
-function add(text) {
+function commitDraft() {
+  const text = draft.input.value.trim();
   if (!text || !store) return;
-  store.apply(target ? { type: 'add', parent: target.ref, text } : { type: 'add', section: els.section.value, text });
+  draft.input.value = '';
+  store.apply(draft.parent ? { type: 'add', parent: draft.parent, text } : { type: 'add', section: draft.section, text, position: 'top' });
+}
+
+function closeDraft(commit) {
+  if (!draft) return;
+  if (commit) commitDraft();
+  if (rec && recInput === draft.input) rec.abort();
+  draft.el.remove();
+  draft = null;
+}
+
+function wireDraft(d) {
+  d.input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (e.isComposing || e.keyCode === 229) return; // Enter that picks a Chinese IME candidate
+      if (d.input.value.trim()) commitDraft(); // stays open for the next one
+      else closeDraft(false);
+    } else if (e.key === 'Escape') {
+      closeDraft(false);
+    }
+  });
+  // Tapping elsewhere saves what was typed, like Reminders. The delay lets a
+  // tap on the mic (which iOS reports as a blur) keep the line open.
+  d.input.addEventListener('blur', () => {
+    setTimeout(() => {
+      if (draft === d && document.activeElement !== d.input && !(rec && recInput === d.input)) closeDraft(true);
+    }, 250);
+  });
+  // Keep the keyboard up while the mic is pressed.
+  const keepFocus = (e) => e.preventDefault();
+  d.mic.addEventListener('mousedown', keepFocus);
+  d.mic.addEventListener('pointerdown', (e) => {
+    keepFocus(e);
+    held = false;
+    if (Recognition) holdTimer = setTimeout(() => ((held = true), switchLang()), 550);
+  });
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) d.mic.addEventListener(ev, () => clearTimeout(holdTimer));
+  d.mic.addEventListener('contextmenu', keepFocus);
+  d.mic.addEventListener('click', () => {
+    if (held) held = false;
+    else listen(d.input, d.mic);
+  });
 }
 
 // ---------- list events ----------
@@ -274,15 +327,8 @@ els.list.addEventListener('click', (e) => {
   if (el.closest('[data-open-settings]')) return openSettings();
   if (el.closest('[data-show-done]')) return setShowDone(true);
 
-  const here = el.closest('[data-section]');
-  if (here) {
-    const section = doc.sections[+here.dataset.section];
-    setTarget(null);
-    settings.section = section.key;
-    saveSettings();
-    renderComposer();
-    return els.input.focus();
-  }
+  if (el.closest('[data-add]')) return openDraft(el.closest('.section').dataset.key);
+  if (el.closest('.draft')) return;
 
   const row = el.closest('.row[data-i]');
   const task = row && doc.tasks[+row.dataset.i];
@@ -297,7 +343,7 @@ els.list.addEventListener('click', (e) => {
       return remove(task);
     }
     const current = finishEdit(value);
-    if (current) setTarget(current);
+    if (current) openDraft(current.section.key, refOf(current));
     return;
   }
   if (el.closest('a, .edit')) return;
@@ -321,28 +367,6 @@ els.list.addEventListener('focusout', (e) => {
   if (deferred) render();
 });
 
-// ---------- composer ----------
-
-els.composer.addEventListener('submit', (e) => {
-  e.preventDefault();
-  add(els.input.value.trim());
-  els.input.value = '';
-  updateSend();
-});
-
-// Enter that confirms a Chinese IME candidate must not also submit the todo.
-els.input.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && (e.isComposing || e.keyCode === 229)) e.preventDefault();
-});
-els.input.addEventListener('input', updateSend);
-
-els.section.addEventListener('change', () => {
-  settings.section = els.section.value;
-  saveSettings();
-});
-
-$('clear-target').addEventListener('click', () => setTarget(null));
-
 // ---------- voice ----------
 
 const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -355,28 +379,30 @@ function voiceLang() {
   return settings.lang || (navigator.language?.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US');
 }
 
-function listen() {
+let recInput = null;
+
+function listen(input, mic) {
   if (rec) return rec.stop();
   if (!Recognition || voiceBlocked) {
-    els.input.focus();
+    input.focus();
     return toast('Tap the mic on your keyboard to dictate');
   }
-  const before = els.input.value.trim();
+  const before = input.value.trim();
   const joiner = voiceLang().startsWith('zh') ? '' : ' ';
   rec = new Recognition();
+  recInput = input;
   rec.lang = voiceLang();
   rec.interimResults = true;
   rec.continuous = false;
   rec.onresult = (e) => {
     const said = [...e.results].map((r) => r[0].transcript).join('').trim();
-    els.input.value = [before, said].filter(Boolean).join(joiner);
-    updateSend();
+    input.value = [before, said].filter(Boolean).join(joiner);
   };
   rec.onerror = (e) => {
     if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
       // Some iOS home-screen apps refuse speech recognition; the keyboard mic always works.
       voiceBlocked = true;
-      els.input.focus();
+      input.focus();
       toast('Voice is blocked here. Use the mic on your keyboard.');
     } else if (e.error === 'no-speech') {
       toast("Didn't catch that");
@@ -385,34 +411,31 @@ function listen() {
     }
   };
   rec.onend = () => {
-    rec = null;
-    els.mic.classList.remove('live');
+    rec = recInput = null;
+    mic.classList.remove('live');
+    if (input.isConnected) input.focus();
   };
   try {
     rec.start();
-    els.mic.classList.add('live');
+    mic.classList.add('live');
   } catch {
-    rec = null;
+    rec = recInput = null;
   }
+}
+
+function updateLangBadge() {
+  const badge = draft?.mic.querySelector('.lang');
+  if (!badge) return;
+  badge.hidden = !Recognition;
+  badge.textContent = voiceLang().startsWith('zh') ? '中' : 'EN';
 }
 
 function switchLang() {
   settings.lang = voiceLang().startsWith('zh') ? 'en-US' : 'zh-CN';
   saveSettings();
-  renderComposer();
+  updateLangBadge();
   toast(settings.lang === 'zh-CN' ? 'Voice: 中文' : 'Voice: English');
 }
-
-els.mic.addEventListener('pointerdown', () => {
-  held = false;
-  if (Recognition) holdTimer = setTimeout(() => ((held = true), switchLang()), 550);
-});
-for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) els.mic.addEventListener(ev, () => clearTimeout(holdTimer));
-els.mic.addEventListener('contextmenu', (e) => e.preventDefault());
-els.mic.addEventListener('click', () => {
-  if (held) held = false;
-  else listen();
-});
 
 // ---------- header ----------
 
@@ -541,24 +564,20 @@ function quickAdd() {
   const text = p.get('add')?.trim();
   if (!text) return;
   history.replaceState(null, '', location.pathname);
-  if (!store) {
-    els.input.value = text;
-    updateSend();
-    return toast('Connect GitHub first, then tap send');
-  }
+  if (!store) return toast('Connect GitHub first, then try again');
   const want = p.get('section')?.toLowerCase();
   const section = want && doc.sections.find((s) => s.title.toLowerCase() === want || s.key.toLowerCase() === want);
-  store.apply({ type: 'add', section: section?.key ?? defaultSection(), text });
-  toast(`Added to ${section?.title ?? (els.section.selectedOptions[0]?.text || 'your list')}`);
+  const key = section?.key ?? defaultSection();
+  store.apply({ type: 'add', section: key, text, position: 'top' });
+  toast(`Added to ${doc.sections.find((s) => s.key === key)?.title || 'your list'}`);
 }
 
-// Keep the composer above the iOS keyboard.
+// Keep toasts above the iOS keyboard.
 const vv = window.visualViewport;
 if (vv) {
   const fit = () => {
     const kb = Math.max(0, innerHeight - vv.height - vv.offsetTop);
     document.documentElement.style.setProperty('--kb', `${kb}px`);
-    document.documentElement.classList.toggle('kb', kb > 80);
   };
   vv.addEventListener('resize', fit);
   vv.addEventListener('scroll', fit);
