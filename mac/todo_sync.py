@@ -29,7 +29,7 @@ DEFAULTS = {
     "TODO_FILE": None,  # e.g. ~/Vault/Todo.md
     "TODO_REPO": None,  # e.g. owner/vault
     "TODO_BRANCH": "main",
-    "TODO_PATH": "Todo-Main.md",
+    "TODO_PATH": "Todos.md",
     "TODO_STATE": "~/.local/state/todo-sync",
     "GH": "gh",
 }

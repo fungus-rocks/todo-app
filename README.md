@@ -7,7 +7,7 @@ Every change goes back into the same Markdown file Obsidian shows.
 ```
  iPhone / any browser                 GitHub (private vault repo)              Mac
 ┌──────────────────────┐   contents   ┌──────────────────────────┐   gh api   ┌─────────────────────────┐
-│ this app (PWA)       │ ───── API ──▶│ main:Todo-Main.md        │◀────────── │ mac/todo_sync.py        │
+│ this app (PWA)       │ ───── API ──▶│ main:Todos.md            │◀────────── │ mac/todo_sync.py        │
 │ token in localStorage│◀──────────── │ (single source of truth) │ ─────────▶ │ launchd: every 60s +    │
 └──────────────────────┘              └──────────────────────────┘            │ on save → vault file    │
                                                                               └─────────────────────────┘

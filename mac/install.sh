@@ -13,7 +13,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 : "${TODO_FILE:?set TODO_FILE in mac/config.env}"
 : "${TODO_REPO:?set TODO_REPO in mac/config.env}"
 TODO_BRANCH="${TODO_BRANCH:-main}"
-TODO_PATH="${TODO_PATH:-Todo-Main.md}"
+TODO_PATH="${TODO_PATH:-Todos.md}"
 PYTHON="$(command -v python3)"
 GH="$(command -v gh)"
 

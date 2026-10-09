@@ -6,7 +6,7 @@
 // GitHub refuses the write and we simply fetch and replay again. Ops survive
 // reloads, so a change made offline is sent the next time the app opens.
 
-import { applyOps, taskText } from './todo-md.js';
+import { applyOps, refText } from './formats.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -142,7 +142,7 @@ export class Store {
 export function commitMessage(ops) {
   const short = (s) => (s.length > 60 ? s.slice(0, 59) + '…' : s);
   const lines = ops.map((op) => {
-    const text = short(op.type === 'add' ? op.text : taskText(op.ref.raw));
+    const text = short(op.type === 'add' ? op.text : refText(op.ref));
     if (op.type === 'toggle') return `${op.done ? '✓' : '○'} ${text}`;
     return `${{ add: '+', edit: '✎', delete: '−' }[op.type] ?? '·'} ${text}`;
   });

@@ -1,13 +1,15 @@
 // Offline shell: serve the app from cache, refresh it in the background.
 // GitHub API calls are cross-origin and never pass through here.
 
-const CACHE = 'todo-v1';
+const CACHE = 'todo-v2';
 const SHELL = [
   './',
   'index.html',
   'app.js',
   'store.js',
   'todo-md.js',
+  'todo-table.js',
+  'formats.js',
   'github.js',
   'manifest.webmanifest',
   'icons/icon.svg',

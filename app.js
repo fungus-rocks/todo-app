@@ -1,4 +1,5 @@
-import { parse, refOf, locate, renderInline } from './todo-md.js';
+import { renderInline } from './todo-md.js';
+import { parse, refOf, locate } from './formats.js';
 import { makeClient } from './github.js';
 import { Store } from './store.js';
 
@@ -44,7 +45,7 @@ let settings = {
   token: '',
   repo: '',
   branch: 'main',
-  path: 'Todo-Main.md',
+  path: 'Todos.md',
   lang: '',
   showDone: false,
   section: null,
@@ -95,8 +96,8 @@ function render() {
     const check = `<button class="check" role="checkbox" aria-checked="${t.done}" aria-label="${t.done ? 'Mark not done' : 'Mark done'}">${CHECK_SVG}</button>`;
     const body = isEditing
       ? `<div class="edit"><input value="${esc(t.text)}" aria-label="Edit todo" enterkeyhint="done" autocapitalize="sentences">
-           <div class="actions"><button type="button" data-act="subtask">+ Subtask</button><button type="button" data-act="delete" class="danger">Delete</button></div></div>`
-      : `<div class="text">${renderInline(t.text) || '&nbsp;'}</div>`;
+           <div class="actions">${doc.kind === 'table' ? '' : '<button type="button" data-act="subtask">+ Subtask</button>'}<button type="button" data-act="delete" class="danger">Delete</button></div></div>`
+      : `<div class="text">${renderInline(t.text) || '&nbsp;'}${(t.badges ?? []).map((b) => ` <span class="badge">${esc(b)}</span>`).join('')}</div>`;
     return `<li class="${t.done ? 'done' : ''}${isEditing ? ' editing' : ''}">
       <div class="row" data-i="${i}">${check}${body}</div>
       ${kids.length ? `<ul class="children">${kids.map(taskHtml).join('')}</ul>` : ''}</li>`;
@@ -198,7 +199,7 @@ function renderWelcome() {
 function defaultSection() {
   const shown = shownSections();
   if (!store?.loaded || shown.some((s) => s.key === settings.section)) return settings.section ?? '';
-  return shown.find((s) => s.level >= 2)?.key ?? shown[0]?.key ?? '';
+  return shown.find((s) => s.key === doc.defaultSection)?.key ?? shown.find((s) => s.level >= 2)?.key ?? shown[0]?.key ?? '';
 }
 
 const lingerKey = (t) => `${t.section.key}\n${t.text}`;
@@ -211,7 +212,7 @@ function toggle(task) {
     justDone.set(lingerKey(task), Date.now());
     setTimeout(render, LINGER_MS + 50);
   }
-  store.apply({ type: 'toggle', ref: refOf(task), done });
+  store.apply({ type: 'toggle', ref: refOf(task), done, at: Date.now() });
 }
 
 function startEdit(task) {
@@ -451,7 +452,7 @@ els.form.addEventListener('submit', async (e) => {
       .trim()
       .replace(/^https?:\/\/github\.com\//, '')
       .replace(/(\.git|\/)$/, ''),
-    path: f.path.value.trim() || 'Todo-Main.md',
+    path: f.path.value.trim() || 'Todos.md',
     branch: f.branch.value.trim() || 'main',
     lang: f.lang.value,
   };
@@ -546,7 +547,7 @@ function quickAdd() {
     return toast('Connect GitHub first, then tap send');
   }
   const want = p.get('section')?.toLowerCase();
-  const section = want && doc.sections.find((s) => s.title.toLowerCase() === want);
+  const section = want && doc.sections.find((s) => s.title.toLowerCase() === want || s.key.toLowerCase() === want);
   store.apply({ type: 'add', section: section?.key ?? defaultSection(), text });
   toast(`Added to ${section?.title ?? (els.section.selectedOptions[0]?.text || 'your list')}`);
 }
